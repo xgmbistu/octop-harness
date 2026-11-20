@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### 新增
+
+- 新增仓库根独立脚本 `app.py`，提供原生 `GET /welcome` HTTP 路由（返回 JSON `{"message": "welcome"}`、`Content-Type: application/json`，其它路径 404）及配套契约测试 `tests/test_welcome.py`。该服务仅用 Python 标准库、无新增运行依赖。按用户授权，服务脚本置于发布包 `src/octop_harness` 之外，使库本身不含 HTTP server —— 此处显式记录这一取舍，以覆盖 `AGENTS.md`（§2/§7/§10）对库内 HTTP server 的约束。
+
 ## [1.0.11] - 2026-11-17
 
 ### 新增

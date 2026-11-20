@@ -1,0 +1,4 @@
+{
+  "test": ["python3", "-m", "pytest", "-c", "/dev/null", "--rootdir=.", "-o", "pythonpath=.", "--noconftest", "tests/test_welcome.py", "-q"],
+  "serve": ["python3", "app.py", "{port}"]
+}

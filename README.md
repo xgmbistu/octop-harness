@@ -383,11 +383,43 @@ or `no`) to disable backups. Maintenance expires the backup after 7 days
 by default. Set `OCTOP_CHECKPOINT_BACKUP_KEEP_DAYS=0` to keep it indefinitely.
 Expiration leaves the marker in place.
 
+## HTTP endpoint: GET /welcome
+
+A minimal, dependency-free HTTP service is provided by the standalone
+`app.py` script at the repository root. It is built on the Python standard
+library `http.server`, adds no runtime dependency, and lives outside the
+`src/octop_harness` package (so the published library itself stays free of an
+HTTP server).
+
+Start it, optionally passing the port as the first argument (the platform
+passes an ephemeral `{port}` here):
+
+```bash
+python3 app.py 8000            # or: python3 app.py {port}
+WELCOME_PORT=8000 python3 app.py   # WELCOME_HOST overrides the bind host
+```
+
+| Method | Path | Response |
+|--------|------|----------|
+| `GET` | `/welcome` | `200`, `Content-Type: application/json`, body `{"message": "welcome"}` |
+| `GET` | any other path | `404` |
+
+```bash
+curl -i http://127.0.0.1:8000/welcome
+# HTTP/1.0 200 OK
+# Content-Type: application/json
+# {"message": "welcome"}
+```
+
+The route is covered by the contract test `tests/test_welcome.py` (real
+loopback HTTP requests, no external network).
+
 ## Documentation
 
 - [What is Octop Harness?](#what-is-octop-harness)
 - [Why Octop Harness?](#why-octop-harness)
 - [How to Use](#how-to-use)
+- [HTTP endpoint: GET /welcome](#http-endpoint-get-welcome)
 - **Reference**
   - [CLI reference](#cli-reference)
   - [Project layout](#project-layout)

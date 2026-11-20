@@ -1,0 +1,70 @@
+{
+  "stage": "06-review-commit",
+  "approved": true,
+  "summary": "原生 GET /welcome 路由的实现、契约测试覆盖与实际 HTTP 结果三者一致且互相印证，功能验收条件全部满足；未发现阻塞性缺陷，无需修复。审查通过（approved=true）。",
+  "acceptance": [
+    {"id": "AC-1", "criterion": "GET /welcome 返回 HTTP 200", "result": "pass", "evidence": "06 复跑契约测试 4 passed；06 独立 live HTTP 冒烟 GET /welcome -> 200；http-results.json status=200"},
+    {"id": "AC-2", "criterion": "响应 JSON 精确为 {\"message\": \"welcome\"}", "result": "pass", "evidence": "test_welcome_returns_expected_json 断言；live 冒烟 body={\"message\": \"welcome\"} 解析 message=welcome；http-results.json body 一致"},
+    {"id": "AC-3", "criterion": "Content-Type: application/json", "result": "pass", "evidence": "test_welcome_content_type_is_json；live 冒烟 Content-Type=application/json；http-results.json content_type=application/json"},
+    {"id": "AC-4", "criterion": "契约测试覆盖该路由且先红后绿", "result": "pass", "evidence": "tests/test_welcome.py 4 用例；03 §五.1 红(No module named 'app') -> 03 §五.3 / 06 复跑绿(4 passed)"},
+    {"id": "AC-5", "criterion": "不破坏既有行为，质量门禁通过", "result": "pass (partial-env)", "evidence": "ruff check / ruff format --check / mypy app.py / make lint 全绿；仓库级 make all 受 3.11/缺 deepagents 环境限制无法整体执行，见 F-03"},
+    {"id": "AC-6", "criterion": "取舍在 CHANGELOG ## [Unreleased] 显式记录", "result": "pass", "evidence": "CHANGELOG.md diff 新增条目记录「用户授权覆盖库内 HTTP server 约束」"},
+    {"id": "AC-7", "criterion": "启动/回滚可执行、服务无状态", "result": "pass", "evidence": "runtime.json serve=python3 app.py {port}；06 用该方式启动 + terminate 冒烟通过；改动仅新增文件与文档编辑"}
+  ],
+  "verification_rerun": {
+    "contract_test": {"command": "python3 -m pytest -c /dev/null --rootdir=. -o pythonpath=. --noconftest tests/test_welcome.py -q", "result": "4 passed in 2.04s", "exit": 0},
+    "ruff_check": {"command": "python3 -m ruff check app.py tests/test_welcome.py", "result": "All checks passed!", "exit": 0},
+    "ruff_format": {"command": "python3 -m ruff format --check app.py tests/test_welcome.py", "result": "2 files already formatted", "exit": 0},
+    "mypy": {"command": "python3 -m mypy app.py", "result": "Success: no issues found in 1 source file", "exit": 0},
+    "live_http": {"command": "python3 app.py {ephemeral_port} + http.client loopback GET", "result": "GET /welcome -> 200 | application/json | {\"message\": \"welcome\"}; GET /other -> 404", "exit": 0},
+    "git_diff_check": {"command": "git diff --check", "result": "clean", "exit": 0}
+  },
+  "fixes": [],
+  "findings": [
+    {
+      "id": "F-01",
+      "severity": "info",
+      "blocking": false,
+      "title": "路由为精确路径匹配，带尾斜杠或查询串返回 404",
+      "detail": "app.py:22 以 self.path == \"/welcome\" 精确匹配；实测 GET /welcome/ -> 404、GET /welcome?x=1 -> 404。验收口径仅为 GET /welcome（01 §五 / 02 §六），平台 IT 亦仅请求 /welcome 得 200，属可接受的最小实现而非缺陷。按 AGENTS.md「surgical edits / 避免过度设计」，不扩展路径归一化，不做改动。",
+      "status": "accepted",
+      "evidence": "06 live HTTP 冒烟实测三类路径响应"
+    },
+    {
+      "id": "F-02",
+      "severity": "info",
+      "blocking": false,
+      "title": "根目录 app.py 不在 make lint/typecheck 的覆盖范围",
+      "detail": "pyproject.toml 中 ruff/mypy 目标仅覆盖 src/tests，根目录 app.py 不会被 make lint 自动检查。03 已按 02 §五.4 用显式命令补足，06 复跑 ruff check / ruff format --check / mypy app.py 均通过，门禁缺口已被显式覆盖。",
+      "status": "mitigated",
+      "evidence": "06 verification_rerun.ruff_check / ruff_format / mypy"
+    },
+    {
+      "id": "F-03",
+      "severity": "info",
+      "blocking": false,
+      "title": "仓库级 make all 在本快照无法整体运行",
+      "detail": "本机 python3 3.11.6 < 项目要求 >=3.12，且 tests/conftest.py:11 顶层 import 缺 deepagents，导致 make typecheck（既有 PEP695 语法）/ make test（conftest 导入）必失败，均与本次改动无关；make format 还会非破坏性地重写 src/tests，超出审查阶段 surgical 边界。此项为 01/02/03 已识别并记录的既有环境限制，非代码回归。平台「复跑测试、检查差异」在完整 dev 环境（Python>=3.12 + 依赖齐备）复核。",
+      "status": "deferred-to-platform",
+      "evidence": "03 §五.6；01 §二.8；06 python3 --version=3.11.6"
+    },
+    {
+      "id": "F-04",
+      "severity": "info",
+      "blocking": false,
+      "title": ".wally/ 阶段产物与证据文件未被 .gitignore 排除",
+      "detail": "git status 显示 .wally/ 为未跟踪目录，内含阶段文档、runtime.json、test-output.txt、http-results.json 等证据文件；.gitignore 无 .wally 规则。commit 由平台收尾执行，按平台规则决定纳入范围即可；这是流程/产物归属提示，不是代码缺陷，不阻断审查结论。",
+      "status": "noted",
+      "evidence": "git status；grep -n wally .gitignore 无命中"
+    },
+    {
+      "id": "F-05",
+      "severity": "info",
+      "blocking": false,
+      "title": "接口、测试、实际 HTTP 结果三方一致",
+      "detail": "app.py 契约（200 / application/json / {\"message\": \"welcome\"} / 其它路径 404）、tests/test_welcome.py 的 4 个断言、test-output.txt(4 passed)、http-results.json 与 05-it.md/04-deploy.md 记录完全一致；06 独立 live HTTP 冒烟与契约测试复跑再次印证。无不一致项。",
+      "status": "verified",
+      "evidence": "06 verification_rerun；http-results.json；test-output.txt；05-it.md"
+    }
+  ]
+}
